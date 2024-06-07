@@ -1,269 +1,260 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
+#include "glew.h"
+#include "freeglut.h"
+#include "glm.hpp"
+#include "ext.hpp"
 #include <iostream>
+#include <cmath>
+#include <list>
 
-const GLchar* vertexShaderSource =
-"#version 330 core\n"
-"layout(location = 0) in vec3 position;\n"
-"layout(location = 1) in vec3 color;\n"
-"out vec3 vertexColor;\n"
-"uniform mat4 model;\n"
-"uniform mat4 view;\n"
-"uniform mat4 projection;\n"
-"void main()\n"
-"{\n"
-"    gl_Position = projection * view * model * vec4(position.x, position.y, position.z, 1.0);\n"
-"    vertexColor = color;\n"
-"}\0";
+#include "Shader_Loader.h"
+#include "Render_Utils.h"
+#include "Camera.h"
+#include "Texture.h"
 
-const GLchar* fragmentShaderSource =
-"#version 330 core\n"
-"in vec3 vertexColor;\n"
-"out vec4 fragmentColor;\n"
-"void main()\n"
-"{\n"
-"    fragmentColor = vec4(vertexColor, 1.0);\n"
-"}\0";
+GLuint programColor;
+GLuint programTexture;
+GLuint sunTexture;
+GLuint sunColor;
+GLuint GLOBAL_VARIABLE;
+GLuint THE_SUN;
+GLuint MERKURY;
+GLuint WENUS;
+GLuint ZIEMIA;
+GLuint MARS;
+GLuint JOWISZ;
+GLuint SATURN;
+GLuint URAN;
+GLuint NEPTUN;
+GLuint MOON;
+GLuint SPACE;
 
-GLfloat cubeVertices[] = {
-    // Przód
-    -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, 0.5f,    0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, 0.5f,    0.0f, 0.0f, 1.0f,
-    -0.5f, 0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+std::list<std::tuple<glm::vec3, glm::vec3, float>> gunfire = {};
 
-    // Ty³
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, -0.5f,   0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, -0.5f,   0.0f, 0.0f, 1.0f,
-    -0.5f, 0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
 
-    // Lewa œciana
-    -0.5f, 0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
-    -0.5f, 0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-    -0.5f, 0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
+Core::Shader_Loader shaderLoader;
 
-    // Prawa œciana
-    0.5f, 0.5f, 0.5f,    0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, -0.5f,   0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, 0.5f,    0.0f, 0.0f, 1.0f,
+obj::Model sphereModel;
+obj::Model square;
 
-    // Górna œciana
-    -0.5f, 0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, 0.5f,    0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, -0.5f,   0.0f, 0.0f, 1.0f,
-    0.5f, 0.5f, -0.5f,   0.0f, 0.0f, 1.0f,
-    -0.5f, 0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    -0.5f, 0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
+float timefour = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
 
-    // Dolna œciana
-    -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, 0.5f,   0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f
-};
+glm::vec3 cameraPos = glm::vec3(-5, 0, 0);
+glm::vec3 cameraDir;
+float cameraAngle = 0;
+float gunAngle = 0;
+glm::mat4 cameraMatrix, perspectiveMatrix;
 
-int main()
+glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -0.9f, -1.0f));
+
+float angleSpeed = 0.1f;
+float moveSpeed = 0.1f;
+
+void drawObjectTextureSun(obj::Model * model, glm::mat4 modelMatrix, GLuint textureID)
 {
-    // Inicjalizacja GLFW
-    if (!glfwInit())
-    {
-        std::cerr << "Nie uda³o siê zainicjowaæ GLFW" << std::endl;
-        return -1;
-    }
+	GLuint program = sunTexture;
 
-    // Utworzenie okna GLFW
-    const unsigned int windowWidth = 800;
-    const unsigned int windowHeight = 600;
-    GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "Szeœcian 3D", nullptr, nullptr);
-    if (!window)
-    {
-        std::cerr << "Nie uda³o siê utworzyæ okna GLFW" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
+	glUseProgram(program);
+	Core::SetActiveTexture(textureID, "sampler2dtype", 1, 0);
+	glUniform3f(glGetUniformLocation(program, "lightDir"), lightDir.x, lightDir.y, lightDir.z);
 
-    // Ustawienie okna GLFW jako bie¿¹cego kontekstu OpenGL
-    glfwMakeContextCurrent(window);
+	glm::mat4 transformation = perspectiveMatrix * cameraMatrix * modelMatrix;
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelViewProjectionMatrix"), 1, GL_FALSE, (float*)&transformation);
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelMatrix"), 1, GL_FALSE, (float*)&modelMatrix);
 
-    // Inicjalizacja GLAD
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        std::cerr << "Nie uda³o siê zainicjowaæ GLAD" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
+	Core::DrawModel(model);
 
-    // Ustawienie rozmiaru widoku
-    glViewport(0, 0, windowWidth, windowHeight);
-
-    // W³¹czenie testowania g³êbi
-    glEnable(GL_DEPTH_TEST);
-
-    // Kompilacja i ³¹czenie shaderów
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-    glCompileShader(vertexShader);
-
-    GLint status;
-    GLchar error_message[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
-    if (!status)
-    {
-        glGetShaderInfoLog(vertexShader, 512, nullptr, error_message);
-        std::cout << "B³¹d (Shader wierzcho³ków): " << error_message << std::endl;
-    }
-
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
-    glCompileShader(fragmentShader);
-
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
-    if (!status)
-    {
-        glGetShaderInfoLog(fragmentShader, 512, nullptr, error_message);
-        std::cout << "B³¹d (Shader fragmentów): " << error_message << std::endl;
-    }
-
-    GLuint shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &status);
-    if (!status)
-    {
-        glGetProgramInfoLog(shaderProgram, 512, nullptr, error_message);
-        std::cout << "B³¹d (Program shaderów): " << error_message << std::endl;
-    }
-
-    glDetachShader(shaderProgram, vertexShader);
-    glDetachShader(shaderProgram, fragmentShader);
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    // Dane wierzcho³ków
-    GLuint VAO;
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
-    GLuint VBO;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    glBindVertexArray(0);
-
-    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
-    GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
-    GLint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-
-    // Zmienne kamery i transformacji
-    glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, 2.5f);
-    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-    glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-    float pitch = 0.0f;
-    float yaw = -90.0f;
-    float sensitivity = 0.075f;
-    float cameraSpeed = 0.03f;
-
-    glm::mat4 model = glm::mat4(1.0f);
-    glm::mat4 view = glm::lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp);
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), static_cast<float>(windowWidth) / static_cast<float>(windowHeight), 0.1f, 100.0f);
-
-
-    // G³ówna pêtla
-    while (!glfwWindowShouldClose(window))
-    {
-        // Przetwarzanie wejœcia
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            cameraPosition += cameraSpeed * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            cameraPosition -= cameraSpeed * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            cameraPosition -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            cameraPosition += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-
-        double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
-
-        static float previousX = static_cast<float>(windowWidth) / 2.0f;
-        static float previousY = static_cast<float>(windowHeight) / 2.0f;
-        float xdifference = xpos - previousX;
-        float ydifference = previousY - ypos;
-        previousX = xpos;
-        previousY = ypos;
-        xdifference *= sensitivity;
-        ydifference *= sensitivity;
-        yaw += xdifference;
-        pitch += ydifference;
-        if (pitch > 89.0f)
-            pitch = 89.0f;
-        if (pitch < -89.0f)
-            pitch = -89.0f;
-
-        glm::vec3 cameraFrontNew;
-        cameraFrontNew.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        cameraFrontNew.y = sin(glm::radians(pitch));
-        cameraFrontNew.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-        cameraFront = glm::normalize(cameraFrontNew);
-
-        view = glm::lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp);
-
-        // Wyczyszczenie buforów koloru i g³êbi
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // U¿ycie programu shaderów
-        glUseProgram(shaderProgram);
-
-        // Ustawienie uniformów
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-        // Powi¹zanie VAO i narysowanie szeœcianu
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-
-        // Zamiana buforów przednich i tylnych
-        glfwSwapBuffers(window);
-
-        // Oczekiwanie na zdarzenia
-        glfwPollEvents();
-    }
-
-    // Wyczyszczenie zasobów
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteProgram(shaderProgram);
-
-    // Zakoñczenie GLFW
-    glfwTerminate();
-
-    return 0;
+	glUseProgram(0);
 }
+
+
+glm::mat4 createCameraMatrix()
+{
+	cameraDir = glm::vec3(cosf(cameraAngle), 0.0f, sinf(cameraAngle));
+	glm::vec3 up = glm::vec3(0,1,0);
+
+	return Core::createViewMatrix(cameraPos, cameraDir, up);
+}
+
+void drawObjectColor(obj::Model * model, glm::mat4 modelMatrix, glm::vec3 color)
+{
+	GLuint program = programColor;
+
+	glUseProgram(program);
+
+	glUniform3f(glGetUniformLocation(program, "objectColor"), color.x, color.y, color.z);
+	glUniform3f(glGetUniformLocation(program, "lightDir"), lightDir.x, lightDir.y, lightDir.z);
+	glm::mat4 transformation = perspectiveMatrix * cameraMatrix * modelMatrix;
+
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelViewProjectionMatrix"), 1, GL_FALSE, (float*)&transformation);
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelMatrix"), 1, GL_FALSE, (float*)&modelMatrix);
+
+	Core::DrawModel(model);
+
+	glUseProgram(0);
+}
+
+
+void drawObjectTexture(obj::Model * model, glm::mat4 modelMatrix, GLuint textureID)
+{
+	GLuint program = programTexture;
+	
+	glUseProgram(program);
+	Core::SetActiveTexture(textureID, "sampler2dtype", 1, 0);
+	glUniform3f(glGetUniformLocation(program, "lightDir"), lightDir.x, lightDir.y, lightDir.z);
+	
+	
+	glm::mat4 rotation;
+
+	glm::mat4 transformation = perspectiveMatrix * cameraMatrix * modelMatrix;
+	
+	
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelViewProjectionMatrix"), 1, GL_FALSE, (float*)&transformation);
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelMatrix"), 1, GL_FALSE, (float*)&modelMatrix);
+
+	Core::DrawModel(model);
+
+	glUseProgram(0);
+}
+
+
+void renderScene()
+{
+	cameraMatrix = createCameraMatrix();
+	perspectiveMatrix = Core::createPerspectiveMatrix();
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+	glm::mat4 rotation;
+	glm::mat4 translationMerkury;
+	glm::mat4 translationWenus;
+	glm::mat4 translationZiemia;
+	glm::mat4 translationMars;
+	glm::mat4 translationJowisz;
+	glm::mat4 translationSaturn;
+	glm::mat4 translationUran;
+	glm::mat4 translationNeptun;
+	glm::mat4 translationKsiezyc;
+
+
+	//Rotation odpowiada za rotacjÄ™ dookoÅ‚a wÅ‚asnej osi planet
+	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+	rotation[0][0] = cos(time);
+	rotation[2][0] = sin(time);
+	rotation[0][2] = -sin(time);
+	rotation[2][2] = cos(time);
+
+	translationMerkury[3][0] = 10 * sin(0.9 * time);
+	translationMerkury[3][2] = 10 * cos(0.9 * time);
+	translationWenus[3][0] = 15 * sin(0.7 * time);
+	translationWenus[3][2] = 15 * cos(0.7 * time);
+	translationZiemia[3][0] = 20 *sin(0.5 * time);
+	translationZiemia[3][2] = 20 *cos(0.5 * time);
+	translationMars[3][0] = 25 * sin(0.3 * time);
+	translationMars[3][2] = 25 * cos(0.3 * time);
+	translationJowisz[3][0] = 30 * sin(0.1 * time);
+	translationJowisz[3][2] = 30 * cos(0.1 * time);
+	translationSaturn[3][0] = 35 * sin(0.05 * time);
+	translationSaturn[3][2] = 35 * cos(0.05 * time);
+	translationUran[3][0] = 40 * sin(0.02 * time);
+	translationUran[3][2] = 40 * cos(0.02 * time);
+	translationNeptun[3][0] = 45 * sin(0.005 * time);
+	translationNeptun[3][2] = 45 * cos(0.005 * time);
+	translationKsiezyc[3][0] = 4 * sin(0.1 * time);
+	translationKsiezyc[3][2] = 4 * cos(0.1 * time);
+
+	drawObjectTextureSun(&sphereModel, glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(2.8f)), THE_SUN);
+	//Merkury
+	drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0, 0, 0))*translationMerkury*rotation*glm::scale(glm::vec3(0.5f)), MERKURY);
+	//Wenus
+	drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0,0,0))*translationWenus* rotation*glm::scale(glm::vec3(0.8f)), WENUS);
+	//Ziemia
+	glm::mat4 finalmatrixZiemia = glm::translate(glm::vec3(0, 0, 0))*translationZiemia* rotation*glm::scale(glm::vec3(1.0f));
+	drawObjectTexture(&sphereModel, finalmatrixZiemia, ZIEMIA);
+	//Ksiezyc
+	drawObjectTexture(&sphereModel, (finalmatrixZiemia * translationKsiezyc * glm::scale(glm::vec3(0.4f))), MOON);
+	//Mars
+	drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0, 0, 0))*translationMars* rotation*glm::scale(glm::vec3(0.7f)), MARS);
+	//Jowisz
+	drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0, 0, 0))*translationJowisz* rotation*glm::scale(glm::vec3(2.0f)), JOWISZ);
+	//Saturn
+	drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0, 0, 0))*translationSaturn* rotation* glm::scale(glm::vec3(1.8f)), SATURN);
+	//Uran
+	drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0, 0, 0))*translationUran* rotation*glm::scale(glm::vec3(1.6f)), URAN);
+	//Neptun
+	drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0, 0, 0))*translationNeptun* rotation*glm::scale(glm::vec3(1.4f)), NEPTUN);
+	drawObjectTextureSun(&sphereModel, glm::translate(glm::vec3(0, 0, 0))* glm::scale(glm::vec3(70.0f)), SPACE);
+	glutSwapBuffers();
+}
+
+void init()
+{
+	glEnable(GL_DEPTH_TEST);
+	programColor = shaderLoader.CreateProgram("shaders/shader_color.vert", "shaders/shader_color.frag");
+	programTexture = shaderLoader.CreateProgram("shaders/shader_tex.vert", "shaders/shader_tex.frag");
+	sunTexture = shaderLoader.CreateProgram("shaders/shader_tex_sun.vert", "shaders/shader_tex_sun.frag");
+	sphereModel = obj::loadModelFromFile("models/sphere.obj");
+	GLOBAL_VARIABLE = Core::LoadTexture("textures/earth.png");
+	THE_SUN = Core::LoadTexture("textures/sun.png");
+	MERKURY = Core::LoadTexture("textures/merkury.png");
+	WENUS = Core::LoadTexture("textures/wenus.png");
+	ZIEMIA = Core::LoadTexture("textures/earth.png");
+	MARS = Core::LoadTexture("textures/mars.png");
+	JOWISZ = Core::LoadTexture("textures/jowisz.png");
+	SATURN = Core::LoadTexture("textures/saturn.png");
+	URAN = Core::LoadTexture("textures/uran.png");
+	NEPTUN = Core::LoadTexture("textures/neptun.png");
+	MOON = Core::LoadTexture("textures/deathstar.png");
+	SPACE = Core::LoadTexture("textures/SPACE.PNG");
+}
+
+void shutdown()
+{
+	shaderLoader.DeleteProgram(programColor);
+	shaderLoader.DeleteProgram(programTexture);
+	shaderLoader.DeleteProgram(sunTexture);
+}
+
+void idle()
+{
+	glutPostRedisplay();
+}
+
+void keyboard(unsigned char key, int x, int y)
+{
+
+	switch (key)
+	{
+	case 'z': cameraAngle -= angleSpeed; break;
+	case 'x': cameraAngle += angleSpeed; break;
+	case 'w': cameraPos += cameraDir * moveSpeed; break;
+	case 's': cameraPos -= cameraDir * moveSpeed; break;
+	case 'd': cameraPos += glm::cross(cameraDir, glm::vec3(0, 1, 0)) * moveSpeed; break;
+	case 'a': cameraPos -= glm::cross(cameraDir, glm::vec3(0, 1, 0)) * moveSpeed; break;
+
+	case 'p': moveSpeed = 0.5f;
+		angleSpeed = 0.5f;
+		break;
+	case 'y': moveSpeed = 0.1f;
+		angleSpeed = 0.5f;
+		break;
+	}
+}
+
+int main(int argc, char ** argv)
+{
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
+	glutInitWindowPosition(0, 0);
+	glutInitWindowSize(1200, 800);
+	glutCreateWindow("Karol Woda & Wojciech Zacharski");
+	glewInit();
+	init();
+	glutKeyboardFunc(keyboard);
+	glutDisplayFunc(renderScene);
+	glutIdleFunc(idle);
+	glutMainLoop();
+	shutdown();
+	return 0;
+}
+
